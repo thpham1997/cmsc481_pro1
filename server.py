@@ -1,29 +1,45 @@
 from socket import *
-import time, json
+import errno, time, json
 
-ssock = None
+
+ACTIONS = ('LOGIN', 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE', 'CANCEL')
+
+serverSocket = None
+recvbufsize = 1024
 
 def openConnection():
-  serverName = "need to modify" # enter correct server address
   serverPort = 5856
-  recvbufsize = 1024
-  ssock = socket(AF_INET, SOCK_STREAM)
-  ssock.connect((serverName, serverPort))
-  ssock.setblocking(0)
+  serverSocket = socket(AF_INET, SOCK_STREAM)
+  serverSocket.bind(('', serverPort))
+  serverSocket.listen(1)
+  print ("The TCP server is ready to receive msgs on port", serverPort)
   
-  
-def closeConnection():
-  if ssock != None:
+
+
+# pretty much same funtion as client but with more logics and database process
+
+
+
+# driver for server
+openConnection()
+while True:
+    # accept a new connetion.
+  csock, caddr = serverSocket.accept()
+  print("Accepted TCP request from: ", caddr)
+  csock.setblocking(0)
+  while True:
     try:
-      ssock.close()
-      ssock = None
-    except Exception as e:
-      print("ERROR: " + e)
-      
-      
-      
-def loginByID(id):
-  status = "SUCCESS"
-  token = "abc"
-  
-  return status, token
+      rcvmsg = csock.recv(recvbufsize)
+      rcvmsg = rcvmsg.decode('ascii')
+      print(rcvmsg)
+    except error as e:
+      if e.errno == errno.EWOULDBLOCK:
+         # no data received. wait a little and read again
+        time.sleep(0.1)
+        continue
+      else:
+        # error in processing. close this connection,
+        break
+
+
+csock.close()
