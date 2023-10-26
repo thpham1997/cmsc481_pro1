@@ -11,7 +11,7 @@ database.append(note2)
 database.append(note3)
 print(database)
 
-# message_from_client = {"action": 'LOGIN', "parameter": userID/noteID/a note dict}
+# message_from_client = {"action": 'LOGIN', "parameter": userID/noteID/a note dict, "token": token/""}
 # message_from_server = {"status": "SUCCESS/ERROR", "message": "depend on the phase and status, it can be a string or a dict"}
 
 
@@ -92,7 +92,7 @@ while True:
       # convert json string into dict
       rcv_msg_dict = json.loads(rcv_msg)
       # filter out the invalid format message first
-      if len(rcv_msg_dict) < 2 or 'action' not in rcv_msg_dict.keys() or rcv_msg_dict['action'] not in ACTIONS:
+      if len(rcv_msg_dict) < 3 or 'action' not in rcv_msg_dict.keys() or rcv_msg_dict['action'] not in ACTIONS:
         csock.send(message_generator(ERROR, 'INVALID FORMAT').encode())
         continue
       
@@ -106,13 +106,13 @@ while True:
             csock.send(message_generator(ERROR, 'INVALID IDENTIFIER').encode())
             continue
           
-          cur_token = tokenize(rcv_msg_dict['parameter'])
-          if cur_token in tokens:
+          generized_token = tokenize(rcv_msg_dict['parameter'])
+          if cur_token == generized_token:
             csock.send(message_generator(ERROR, 'IDENTIFIER IN USE').encode())
             continue
           
           
-          csock.send(message_generator(SUCCESS, cur_token).encode())
+          csock.send(message_generator(SUCCESS, generized_token).encode())
           phase = 2
           start_timer()
           continue
