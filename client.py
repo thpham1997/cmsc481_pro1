@@ -35,8 +35,8 @@ def loginByID(id):
   message = {"action":"LOGIN","parameter":id}
   ssock.send(json.dumps(message).encode())  # send a message to server with id
    #make sure the server sends the data in this order
+  server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
-  data = ssock.recv(1024) # message contains token and status
   status = data["status"]  # extract status and token
   if status == "SUCCESS":
     token = data["message"] #token is sent as message param 
@@ -51,8 +51,8 @@ def logout(token):
   status = None
   message = None
   ssock.send(ACTIONS[1]+" "+token)
+  server_return = ssock.recv(1024) 
   data = json.loads(server_return)
-  data = ssock.recv(1024) 
   status = data["status"]  # extract status and token
   if status == "SUCCESS":
     message = data["message"] #token is sent as message param 
@@ -63,8 +63,8 @@ def retrieve(noteId, token):
   message = {"action":"RETRIEVE","parameter":noteId} # response message
   note = None # note to return, if any
   ssock.send(json.dumps(message).encode())# send a message to server to retrieve a note or a list of note
+  server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
-  data = ssock.recv(1024) # message contains token and status
   note = data["return"]
   status = data["status"]
   # return status, notes/note
@@ -75,8 +75,8 @@ def add(noteName, noteMessage, token):
   status = None
   message = {"action":"ADD","parameter":noteId, "token":token} # response message
   ssock.send(json.dumps(message).encode())# send a message to server to delete note
+  server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
-  data = ssock.recv(1024) # message contains token and status
   note = data["return"]
   status = data["status"]
   # send a message to server to add note
@@ -87,8 +87,8 @@ def delete(noteId, token):
   status = None
   message = {"action":"DELETE","parameter":noteId, "token":token} # response message
   ssock.send(json.dumps(message).encode())# send a message to server to delete note
+  server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
-  data = ssock.recv(1024) # message contains token and status
   message = data["return"]
   status = data["status"]
   return status,message # return status, message for that status
