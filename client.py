@@ -49,8 +49,8 @@ def loginByID(id):
 
 def logout(token):
   status = None
-  message = None
-  ssock.send(ACTIONS[1]+" "+token)
+  message = {"action":"LOGOUT","parameter":token} # response message
+  ssock.send(json.dumps(message).encode())
   server_return = ssock.recv(1024) 
   data = json.loads(server_return)
   status = data["status"]  # extract status and token
@@ -102,7 +102,7 @@ if __name__ == '__main__':
   try:
     openConnection()
   except error as e:
-    print("Error: "+e)
+    print("An error has occurred in the connection")
     exit()
   user_input = ''
   status,tokens = None
@@ -119,13 +119,16 @@ if __name__ == '__main__':
         print(action)
     while user_input not in ACTIONS and user_input != ACTIONS[0]:
       user_input = input("> ").upper()
-    match action:
+    match action: #verify correct action and return result
       case 'ADD':
         note_to_add = {"name": "note1", "note": ""}
         note_to_add["name"] = input("What do you want to call the note?\n> ")
         note_to_add["note"] = input("What do you want to write in the note?\n> ")
-        add(note_to_add["name"], note_to_add["note"],tokens)
-        break
+        status,message = add(note_to_add["name"], note_to_add["note"],tokens)
+        if status == "SUCCESS":
+          print(note_to_add["name"]+" was successfully added.")
+        else:
+          print("Error: "+status["message"])
       case 'RETRIEVE':
         note_to_print = ""
         noteId = input("Which note would you like to retrieve?\n> ")
@@ -133,8 +136,7 @@ if __name__ == '__main__':
         if status == "SUCCESS" and note_to_print != None:
           print(note_to_print)
         else:
-          print("Error: note does not exist")
-        break
+          print("Error: ")#note does not exist
       case 'DELETE':
         note_to_delete = input("What is the name of the note you would like to delete?\n>")
         status, message = delete(note_to_delete,tokens)
@@ -142,8 +144,7 @@ if __name__ == '__main__':
           print(note_to_delete+" successfully deleted")
         else:
           print("Note failed to delete")
-        break
-    #verify correct action and return result
+    
 
   logout(tokens)  #PHASE 3
   closeConnection()
