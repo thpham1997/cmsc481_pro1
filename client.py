@@ -13,7 +13,7 @@ recvbufsize = 1024
 ACTIONS = ('LOGIN', 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE')
 
 def openConnection():
-  serverName = "need to modify" # enter correct server address
+  serverName = "localhost" # enter correct server address
   serverPort = 5856
   ssock.connect((serverName, serverPort))
   ssock.setblocking(0)
@@ -32,8 +32,9 @@ def closeConnection():
 def loginByID(id):
   status = None
   token = None 
-  message = {"action":"LOGIN","parameter":id}
+  message = {"action":"LOGIN","parameter":id, "token":""}
   ssock.send(json.dumps(message).encode())  # send a message to server with id
+  time.sleep(0.1)
    #make sure the server sends the data in this order
   server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
@@ -41,7 +42,7 @@ def loginByID(id):
   if status == "SUCCESS":
     token = data["message"] #token is sent as message param 
   else:
-    return data["message"],token # should return error message instead
+    return data["status"],data["message"] # should return error message instead
   return status, token # status, token = contact the server
 
 # PHASE 2
@@ -49,8 +50,9 @@ def loginByID(id):
 
 def logout(token):
   status = None
-  message = {"action":"LOGOUT","parameter":token} # response message
+  message = {"action":"LOGOUT","parameter":token, "token": token} # response message
   ssock.send(json.dumps(message).encode())
+  time.sleep(0.1)
   server_return = ssock.recv(1024) 
   data = json.loads(server_return)
   status = data["status"]  # extract status and token
@@ -60,9 +62,10 @@ def logout(token):
   
 def retrieve(noteId, token):
   status = None
-  message = {"action":"RETRIEVE","parameter":noteId} # response message
+  message = {"action":"RETRIEVE","parameter":noteId, "token": token} # response message
   note = None # note to return, if any
   ssock.send(json.dumps(message).encode())# send a message to server to retrieve a note or a list of note
+  time.sleep(0.1)
   server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
   note = data["return"]
@@ -75,6 +78,7 @@ def add(noteName, noteMessage, token):
   status = None
   message = {"action":"ADD","parameter":noteId, "token":token} # response message
   ssock.send(json.dumps(message).encode())# send a message to server to delete note
+  time.sleep(0.1)
   server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
   note = data["return"]
@@ -87,6 +91,7 @@ def delete(noteId, token):
   status = None
   message = {"action":"DELETE","parameter":noteId, "token":token} # response message
   ssock.send(json.dumps(message).encode())# send a message to server to delete note
+  time.sleep(0.1)
   server_return = ssock.recv(1024) # message contains token and status
   data = json.loads(server_return)# make a json format from a dict
   message = data["return"]
@@ -104,46 +109,58 @@ if __name__ == '__main__':
   except error as e:
     print("An error has occurred in the connection")
     exit()
+  print("Connection has happened")
   user_input = ''
-  status,tokens = None
-  while status != "ERROR":
-    user_input = input("Enter ID") #PHASE 1
+  status = ''
+  while True:
+    if status == "ERROR":
+      print("Incorrect ID" + tokens)
+    user_input = input("Enter ID > ") #PHASE 1
     status,tokens =  loginByID(user_input)
+    print(status)
+    if status == "SUCCESS":
+      break
 
   print("Login successful")
 
-  while user_input.upper() != ACTIONS(1):#PHASE 2
+  while user_input.upper() != ACTIONS[1]:#PHASE 2
     print("What would you like to do? Available actions are listed below")
     for action in ACTIONS:
       if action != ACTIONS[0]:
         print(action)
     while user_input not in ACTIONS and user_input != ACTIONS[0]:
       user_input = input("> ").upper()
-    match action: #verify correct action and return result
-      case 'ADD':
-        note_to_add = {"name": "note1", "note": ""}
-        note_to_add["name"] = input("What do you want to call the note?\n> ")
-        note_to_add["note"] = input("What do you want to write in the note?\n> ")
-        status,message = add(note_to_add["name"], note_to_add["note"],tokens)
-        if status == "SUCCESS":
-          print(note_to_add["name"]+" was successfully added.")
-        else:
-          print("Error: "+status["message"])
-      case 'RETRIEVE':
-        note_to_print = ""
-        noteId = input("Which note would you like to retrieve?\n> ")
-        status, note_to_print = retrieve(noteId,tokens)
-        if status == "SUCCESS" and note_to_print != None:
-          print(note_to_print)
-        else:
-          print("Error: ")#note does not exist
-      case 'DELETE':
-        note_to_delete = input("What is the name of the note you would like to delete?\n>")
-        status, message = delete(note_to_delete,tokens)
-        if status == "SUCCESS":
-          print(note_to_delete+" successfully deleted")
-        else:
-          print("Note failed to delete")
+      match action: #verify correct action and return result
+        case 'ADD':
+          if user_input == 'ADD':
+            note_to_add = {"name": "note1", "note": ""}
+            note_to_add["name"] = input("What do you want to call the note?\n> ")
+            note_to_add["note"] = input("What do you want to write in the note?\n> ")
+            status,message = add(note_to_add["name"], note_to_add["note"],tokens)
+            if status == "SUCCESS":
+              print(note_to_add["name"]+" was successfully added.")
+            else:
+              print("Error: "+status["message"])
+          continue
+        case 'RETRIEVE':
+          if user_input == 'RETRIEVE':
+            note_to_print = ""
+            noteId = input("Which note would you like to retrieve?\n> ")
+            status, note_to_print = retrieve(noteId,tokens)
+            if status == "SUCCESS" and note_to_print != None:
+              print(note_to_print)
+            else:
+              print("Error: ")#note does not exist
+          continue
+        case 'DELETE':
+          if user_input == 'DELETE':
+            note_to_delete = input("What is the name of the note you would like to delete?\n>")
+            status, message = delete(note_to_delete,tokens)
+            if status == "SUCCESS":
+              print(note_to_delete+" successfully deleted")
+            else:
+              print("Note failed to delete")
+          continue
     
 
   logout(tokens)  #PHASE 3
