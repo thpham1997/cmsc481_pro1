@@ -28,9 +28,11 @@ def openConnection():
   
 def closeConnection():
   global ssock
+  global token
   try:
     ssock.close()
     ssock = None
+    token = None
     print("\nConnection closed\n")
   except Exception as e:
     print("ERROR: " + e)
@@ -38,7 +40,7 @@ def closeConnection():
 def receiveServerMessage():
   while True:
     try:
-      message= ssock.recv(1024).decode('ascii')
+      message = ssock.recv(1024).decode('ascii')
       print (message)
     except error as e:
       if e.errno == errno.EWOULDBLOCK:
@@ -104,9 +106,9 @@ def retrieve(name, token):
   # return status, notes/note
   return status, note
 
-def add(noteId, noteName, noteMessage, token):
+def add(noteName, noteMessage, token):
   #note format: note1 = {"id": 1, "name": "note1", "note": "this is the note content 1"}
-  note = {"id": noteId, "name": noteName, "note": noteMessage}
+  note = {"name": noteName, "note": noteMessage}
   status = None
   message = {"action":"ADD","parameter": note, "token":token} # response message
   ssock.send(json.dumps(message).encode())# send a message to server to delete note
@@ -146,129 +148,131 @@ def exitApplication():
   exit(0)
 
 
+try:
 
-while True:
-  # Before login, user can choose to connect to server or exit the application
-  # phase 0: welcome and ask for other next step
-  print("Welcome to the Note Server.")
-  print("What do you want to do: ")
-  accessInput = ''
-  while accessInput not in ['1', '2']:
-    print("1. Log in")
-    print("2. Exit")
-    accessInput = input("Enter your choice (1 or 2): ")
-    # this code is at very bottom
-    if accessInput == '2':
-      exitApplication()
+  while True:
+    # Before login, user can choose to connect to server or exit the application
+    # phase 0: welcome and ask for other next step
+    print("Welcome to the Note Server.")
+    print("What do you want to do: ")
+    accessInput = ''
+    while accessInput not in ['1', '2']:
+      print("1. Log in")
+      print("2. Exit")
+      accessInput = input("Enter your choice (1 or 2): ")
+      # this code is at very bottom
+      if accessInput == '2':
+        exitApplication()
+      
+    # now we are in the application and want to log into the application
+    # so we have to enter the identifer (limited by server)
     
-  # now we are in the application and want to log into the application
-  # so we have to enter the identifer (limited by server)
-  
-  # now we can connect to server
-  if ssock == None:
-    openConnection()
+    # now we can connect to server
+    if ssock == None:
+      openConnection()
 
-  
-  # Phase 1
-  identifier = ''
-  loginStatus = ''
-  loginRcvMessage = ''
-  # asking for Identifier or user cancel the action to go back to the application preface(above)
-  while loginStatus != SUCCESS:
-    loginInput = input("Indentifier or CANCEL(enter 0): ")
-    if loginInput == '0':
-      accessInput == ''
-      closeConnection()
-      break;
-    identifier = loginInput
-    loginStatus, loginRcvMessage = loginByID(identifier)
-    if loginStatus == SUCCESS:
-      print(loginStatus + ": logged in, token saved.")
-      token = loginRcvMessage
-    else: 
-      print(loginStatus + ": ", loginRcvMessage)  
-  
-  
-  # now we are in phase 2
-  action = ''
-  actionStatus = ''
-  actionRcvMessage = ''
-  while action != 'LOGOUT' and token:
-    print("What action do you want to perform: ")
-    availableAction = ACTIONS[1:]
-    # print out: 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE'
+    
+    # Phase 1
+    identifier = ''
+    loginStatus = ''
+    loginRcvMessage = ''
+    # asking for Identifier or user cancel the action to go back to the application preface(above)
+    while loginStatus != SUCCESS:
+      loginInput = input("Indentifier or CANCEL(enter 0): ")
+      if loginInput == '0':
+        accessInput == ''
+        closeConnection()
+        break;
+      identifier = loginInput
+      loginStatus, loginRcvMessage = loginByID(identifier)
+      if loginStatus == SUCCESS:
+        print(loginStatus + ": logged in, token saved.")
+        token = loginRcvMessage
+      else: 
+        print(loginStatus + ": ", loginRcvMessage)  
+    
+    
+    # now we are in phase 2
     action = ''
-    for i in range(len(availableAction)):
-      print(i, ".", availableAction[i])    
-    while action not in availableAction:
-      actionChoice = input("Enter your choice: ")
-      if actionChoice.isnumeric() and int(actionChoice) in range(len(availableAction)):
-        action = availableAction[int(actionChoice)]
-      else:
-        print("Not correct choice")
-    
-    match action:
-      case 'LOGOUT':
-        actionStatus, actionRcvMessage = logout(token)
-        print(actionStatus, ":", actionRcvMessage)
-        if isSessionExpired(actionStatus, actionRcvMessage):
-          ssock.close()
-          ssock = None
-          token = None
-          break
-        continue
-        
-      case 'RETRIEVE':
-        retrieveInput = input("Please enter the note name for specific note or ALL for all notes: ")
-        actionStatus, actionRcvMessage = retrieve(retrieveInput, token)
-        print(actionStatus, ":", actionRcvMessage)
-        if isSessionExpired(actionStatus, actionRcvMessage):
-          ssock.close()
-          ssock = None
-          token = None
-          print(SESSION_EXPIRED)
-          break
-        continue
+    actionStatus = ''
+    actionRcvMessage = ''
+    while action != 'LOGOUT' and token:
+      print("What action do you want to perform: ")
+      availableAction = ACTIONS[1:]
+      # print out: 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE'
+      action = ''
+      for i in range(len(availableAction)):
+        print(i, ".", availableAction[i])    
+      while action not in availableAction:
+        actionChoice = input("Enter your choice: ")
+        if actionChoice.isnumeric() and int(actionChoice) in range(len(availableAction)):
+          action = availableAction[int(actionChoice)]
+        else:
+          print("Not correct choice")
       
-      case 'ADD':
-        # @TODO: will discard id input
-        noteId = int(input("Please enter note ID: "))
-        noteName = input("Please enter note name: ")
-        noteText = input("Please enter note: ")
-        actionStatus, actionRcvMessage = add(noteId=noteId, noteName=noteName, noteMessage=noteText, token=token)
-        print(actionStatus, ":", actionRcvMessage)
-        if isSessionExpired(actionStatus, actionRcvMessage):
-          ssock.close()
-          ssock = None
-          token = None
-          print(SESSION_EXPIRED)
-          break
-        continue
-      
-      case 'DELETE':
-        noteName = input("Please enter note name: ")
-        actionStatus, actionRcvMessage = delete(noteName=noteName, token=token)
-        print(actionStatus, ":", actionRcvMessage)
-        if isSessionExpired(actionStatus, actionRcvMessage):
-          ssock.close()
-          ssock = None
-          token = None
-          print(SESSION_EXPIRED)
-          break
-        continue
-      
-    if actionStatus == ERROR and actionRcvMessage == SESSION_EXPIRED:
-      token = None
-      break
+      match action:
+        case 'LOGOUT':
+          actionStatus, actionRcvMessage = logout(token)
+          print(actionStatus, ":", actionRcvMessage)
+          if isSessionExpired(actionStatus, actionRcvMessage):
+            closeConnection()
+            break
+          continue
+          
+        case 'RETRIEVE':
+          retrieveInput = input("Please enter the note name for specific note or ALL for all notes: ")
+          actionStatus, actionRcvMessage = retrieve(retrieveInput, token)
+          print(actionStatus, ":", actionRcvMessage)
+          if isSessionExpired(actionStatus, actionRcvMessage):
+            closeConnection()
+            print(SESSION_EXPIRED)
+            break
+          continue
         
+        case 'ADD':
+          noteName = input("Please enter note name: ")
+          noteText = input("Please enter note: ")
+          actionStatus, actionRcvMessage = add(noteName=noteName, noteMessage=noteText, token=token)
+          print(actionStatus, ":", actionRcvMessage)
+          if isSessionExpired(actionStatus, actionRcvMessage):
+            closeConnection()
+            print(SESSION_EXPIRED)
+            break
+          continue
         
-    # logout successfully
-    # clear token and go back to login (phase 0)
-    if action == "LOGOUT" and actionStatus == SUCCESS:
-      ssock.close()
-      ssock = None
-      token = None
-      break
+        case 'DELETE':
+          noteName = input("Please enter note name: ")
+          actionStatus, actionRcvMessage = delete(noteName=noteName, token=token)
+          print(actionStatus, ":", actionRcvMessage)
+          if isSessionExpired(actionStatus, actionRcvMessage):
+            closeConnection()
+            print(SESSION_EXPIRED)
+            break
+          continue
+        
+      if actionStatus == ERROR and actionRcvMessage == SESSION_EXPIRED:
+        token = None
+        break
+          
+          
+      # logout successfully
+      # clear token and go back to login (phase 0)
+      if action == "LOGOUT" and actionStatus == SUCCESS:
+        ssock.close()
+        ssock = None
+        token = None
+        break
+except KeyboardInterrupt as e:
+  if token:
+    status, logoutMessage = logout(token)
+    print(status, ":", logoutMessage)
+  if ssock:
+    closeConnection()
+  exitApplication
+except Exception as e:
+  print("ERROR: ", e)
+  exitApplication()
+  
     
     
       
