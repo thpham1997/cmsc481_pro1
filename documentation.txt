@@ -17,8 +17,8 @@ Both the client and server utilize tcp and the socket library.
 Additional external libraries include time and json.
 
 The client messages and server responses are formatted as follows:
-# message_from_client = {"action": 'LOGIN', "parameter": userID/noteID/a note dict, "token": token/""}
-# message_from_server = {"status": "SUCCESS/ERROR", "message": "depend on the phase and status, it can be a string or a dict"}
+# server_return = {"status":"status message", "token:":"client token","return":"value to return depending on action"}
+# action = {"action":"LOGIN or other ACTION","param":"userID/noteID/note dict","token":"if token"}
 The dictionary is sent through the socket as a string using json.dumps(), and the server re-organizes the string into a dict using json.loads().
 
 If the server or client does not receive messages in this format, they are rejected. In either case, the server and/or client display that the interaction failed to the user.
