@@ -36,20 +36,21 @@ def message_generator(status, message):
 def tokenize(identifier):
   return hash(identifier + str(time.time()))
 
-def getNote_byName(name):
-  for note in database:
-    if note['name'] == name:
-      return note
-  return {}
-def deleteNote_byName(name):
-  delete_note = None
-  for note in database:
-    if note['name'] == name:
-      delete_note = note
-  if delete_note:
-    database.remove(delete_note)
-    return True
-  return False
+# def getNote_byName(name):
+#   for note in database:
+#     if note['name'] == name:
+#       return note
+#   return {}
+
+# def deleteNote_byName(name):
+#   delete_note = None
+#   for note in database:
+#     if note['name'] == name:
+#       delete_note = note
+#   if delete_note:
+#     database.remove(delete_note)
+#     return True
+#   return False
   
     
 def start_timer():
@@ -84,7 +85,7 @@ def logout(token):
 # database initiate
 con = sqlite3.connect("database.db")
 cur = con.cursor()
-createTableQuery = "create table if not exists notes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, note TEXT)"
+createTableQuery = "create table if not exists notes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, note TEXT)"
 try:
   cur.execute(createTableQuery)
   con.commit()
@@ -97,6 +98,7 @@ addDataQuery = "INSERT INTO notes (name, note) values(?, ?)"
 try:
   for note in database:
     cur.execute(addDataQuery, (note['name'], note['note']))
+    con.commit()
 except sqlite3.Error as er:
   print('SQLite error: %s' % (' '.join(er.args)))
   print("Exception class is: ", er.__class__)
@@ -113,7 +115,74 @@ except sqlite3.Error as er:
   print('SQLite error: %s' % (' '.join(er.args)))
   print("Exception class is: ", er.__class__)
 
+con.close()
 
+def addNote_toDB(noteName, note):
+  conn = sqlite3.connect("database.db")
+  cur = conn.cursor()
+  query = "INSERT INTO notes (name, note) values (?, ?)"
+  try:
+    result = cur.execute(query, (noteName, note))
+    conn.commit()
+    return True
+  except sqlite3.Error as e:
+    print('SQLite error: %s' % (' '.join(e.args)))
+    conn.close()
+    return False
+  
+  
+def retrieveNote_byName(noteName):
+  conn = sqlite3.connect("database.db")
+  cur = conn.cursor()
+  query = "SELECT * FROM notes WHERE name = ?"
+  try:
+    result = cur.execute(query, (noteName, ))
+    data = result.fetchone()
+    note = {"id": data[0], "name": data[1], "note": data[2]}
+    print(data)
+    print(note)
+    conn.close()
+    return note
+  except sqlite3.Error as e:
+    print('SQLite error: %s' % (' '.join(e.args)))
+    conn.close()
+    return {}
+  
+def retrieveNote_ALL():
+  conn = sqlite3.connect("database.db")
+  cur = conn.cursor()
+  query = "SELECT * FROM notes"
+  try:
+    result = cur.execute(query)
+    data = result.fetchall()
+    print("retrievALL", data)
+    note_list = []
+    for d in data:
+      note = {"id": d[0], "name": d[1], "note": d[2]}
+      note_list.append(note)
+    conn.close()
+    print("retrievALL", note_list)
+    return note_list
+  except sqlite3.Error as e:
+    print('SQLite error: %s' % (' '.join(e.args)))
+    conn.close()
+    return []
+  
+def deleteNote_byName(noteName):
+  conn = sqlite3.connect("database.db")
+  cur = conn.cursor()
+  query = "DELETE FROM notes WHERE name = ?"
+  try:
+    result = cur.execute(query, (noteName, ))
+    conn.commit()
+    conn.close()
+    return True
+  except sqlite3.Error as e:
+    print('SQLite error: %s' % (' '.join(e.args)))
+    conn.close()
+    return False
+    
+  
 
 # driver for server
 serverPort = 5856
@@ -121,162 +190,185 @@ serverSocket = socket(AF_INET, SOCK_STREAM)
 serverSocket.bind(('', serverPort))
 serverSocket.listen(1)
 print ("The TCP server is ready to receive msgs on port", serverPort)
-while True:
-    # accept a new connetion.
-  csock, caddr = serverSocket.accept()
-  print("Accepted TCP request from: ", caddr)
-  csock.setblocking(0)
+try:
   while True:
-    try:
-      rcv_msg = csock.recv(recvbufsize)
-      rcv_msg = rcv_msg.decode('ascii')
-      # convert json string into dict
-      print("message: " + rcv_msg)
-      # when client close connection, it send empty message
-      if rcv_msg == '':
-        break
-      
-      rcv_msg_dict = json.loads(rcv_msg)
-      print("message DICT: " + str(rcv_msg_dict))
-      # filter out the invalid format message first
-      if len(rcv_msg_dict) < 3 or 'action' not in rcv_msg_dict.keys() or rcv_msg_dict['action'] not in ACTIONS:
-        print(message_generator(ERROR, 'INVALID FORMAT'))
-        csock.send(message_generator(ERROR, 'INVALID FORMAT').encode())
-        continue
-      
-      
-      match phase:
-        case 1:
-          print("Phase1")
-          if rcv_msg_dict['action'] != 'LOGIN':
-            print(message_generator(ERROR, 'INVALID ACTION'))
-            csock.send(message_generator(ERROR, 'INVALID ACTION').encode())
-            continue
-          # parapemeter should be identifier
-          if rcv_msg_dict['parameter'] not in VALID_IDENTIFIER:
-            print(message_generator(ERROR, 'INVALID IDENTIFIER'))
-            csock.send(message_generator(ERROR, 'INVALID IDENTIFIER').encode())
-            continue
-          
-          generized_token = tokenize(rcv_msg_dict['parameter'])
-          if cur_token == generized_token:
-            print(message_generator(ERROR, 'IDENTIFIER IN USE'))
-            csock.send(message_generator(ERROR, 'IDENTIFIER IN USE').encode())
-            continue
-          
-          print(message_generator(SUCCESS, generized_token))
-          csock.send(message_generator(SUCCESS, generized_token).encode())
-          phase = 2
-          session_start_time = start_timer()
-          cur_token = generized_token
-          continue
-        case 2:
-          print("Phase2")
-          if is_session_expired():
-            token = rcv_msg_dict["token"]
-            is_loggedout = expired_logout(token)
-            if is_loggedout:
-              print(message_generator(ERROR, "SESSION EXPIRED"))
-              csock.send(message_generator(ERROR, "SESSION EXPIRED").encode())
-              continue
-            
-          if rcv_msg_dict['action'] == 'LOGIN':
-            print(message_generator(ERROR, 'INVALID ACTION'))
-            csock.send(message_generator(ERROR, 'INVALID ACTION').encode())
-            continue
-          
-          if rcv_msg_dict['action'] == 'LOGOUT':
-            client_token = rcv_msg_dict['token']
-            is_loggedout = logout(client_token)
-            if is_loggedout:
-              print(message_generator(SUCCESS, 'USER LOGGED OUT'))
-              csock.send(message_generator(SUCCESS, 'USER LOGGED OUT').encode())
-              continue
-            else:
-              print(message_generator(ERROR, 'LOGGING OUT FAIL'))
-              csock.send(message_generator(ERROR, 'LOGGING OUT FAIL').encode())
-              continue
-            
-          if rcv_msg_dict['action'] == 'ADD':
-            # @TODO: add mechanism to generate unique ID, for now, just add them first
-            note = rcv_msg_dict['parameter']
-            client_token = rcv_msg_dict['token']
-            if len(note) != 3:
-              print(message_generator(ERROR, 'INVALID DATA'))
-              csock.send(message_generator(ERROR, 'INVALID DATA').encode())
-              continue
-            if client_token != cur_token:
-              print(message_generator(ERROR, 'INVALID TOKEN'))
-              csock.send(message_generator(ERROR, 'INVALID TOKEN').encode())
-              continue
-            # TODO: change to sqlite
-            database.append(note)
-            print(message_generator(SUCCESS, 'NOTE ADDED'))
-            csock.send(message_generator(SUCCESS, 'NOTE ADDED').encode())
-            continue
-          if rcv_msg_dict['action'] == 'RETRIEVE':
-            # @TODO: add mechanism to generate unique ID, for now, just add them first
-            client_token = rcv_msg_dict['token']
-            if client_token != cur_token:
-              print(message_generator(ERROR, 'INVALID TOKEN'))
-              csock.send(message_generator(ERROR, 'INVALID TOKEN').encode())
-              continue
-            
-            note_name = rcv_msg_dict['parameter']
-            if len(note) == 0:
-              print(message_generator(ERROR, 'INVALID DATA'))
-              csock.send(message_generator(ERROR, 'INVALID DATA').encode())
-              continue
-            if note_name == "ALL":
-              print(message_generator(SUCCESS, database))
-              csock.send(message_generator(SUCCESS, database).encode())
-              continue
-            
-            retrieved_note = getNote_byName(note_name)
-            print(message_generator(SUCCESS, retrieved_note))
-            csock.send(message_generator(SUCCESS, retrieved_note).encode())
-            continue
-          
-          if rcv_msg_dict['action'] == 'DELETE':
-            # @TODO: add mechanism to generate unique ID, for now, just add them first
-            client_token = rcv_msg_dict['token']
-            if client_token != cur_token:
-              print(message_generator(ERROR, 'INVALID TOKEN'))
-              csock.send(message_generator(ERROR, 'INVALID TOKEN').encode())
-              continue
-            
-            note_name = rcv_msg_dict['parameter']
-            if len(note) == 0:
-              print(message_generator(ERROR, 'INVALID DATA'))
-              csock.send(message_generator(ERROR, 'INVALID DATA').encode())
-              continue
-            
-            isDeleted = deleteNote_byName(note_name)
-            if isDeleted:
-              print(message_generator(SUCCESS, "NOTE DELETED"))
-              csock.send(message_generator(SUCCESS, "NOTE DELETED").encode())
-              continue
-            else:
-              print(message_generator(ERROR, "NOTE NOT EXIST"))
-              csock.send(message_generator(ERROR, "NOTE NOT EXIST").encode())
-              continue
-        case _:
-          print(message_generator(ERROR, "SERVER ERROR"))
-          csock.send(message_generator(ERROR, "SERVER ERROR").encode())
+      # accept a new connetion.
+    csock, caddr = serverSocket.accept()
+    print("Accepted TCP request from: ", caddr)
+    csock.setblocking(0)
+    while True:
+      try:
+        rcv_msg = csock.recv(recvbufsize)
+        rcv_msg = rcv_msg.decode('ascii')
+        # convert json string into dict
+        print("message: " + rcv_msg)
+        # when client close connection, it send empty message
+        if rcv_msg == '':
+          break
+        
+        rcv_msg_dict = json.loads(rcv_msg)
+        print("message DICT: " + str(rcv_msg_dict))
+        # filter out the invalid format message first
+        if len(rcv_msg_dict) < 3 or 'action' not in rcv_msg_dict.keys() or rcv_msg_dict['action'] not in ACTIONS:
+          print(message_generator(ERROR, 'INVALID FORMAT'))
+          csock.send(message_generator(ERROR, 'INVALID FORMAT').encode())
           continue
         
-      
-      
-      
-    except error as e:
-      if e.errno == errno.EWOULDBLOCK:
-         # no data received. wait a little and read again
-        time.sleep(0.1)
-        continue
-      else:
-        # error in processing. close this connection,
-        print("ERROR: " + e.strerror)
-        continue
-
-
-csock.close()
+        
+        match phase:
+          case 1:
+            print("Phase1")
+            if rcv_msg_dict['action'] != 'LOGIN':
+              print(message_generator(ERROR, 'INVALID ACTION'))
+              csock.send(message_generator(ERROR, 'INVALID ACTION').encode())
+              continue
+            # parapemeter should be identifier
+            if rcv_msg_dict['parameter'] not in VALID_IDENTIFIER:
+              print(message_generator(ERROR, 'INVALID IDENTIFIER'))
+              csock.send(message_generator(ERROR, 'INVALID IDENTIFIER').encode())
+              continue
+            
+            generized_token = tokenize(rcv_msg_dict['parameter'])
+            if cur_token == generized_token:
+              print(message_generator(ERROR, 'IDENTIFIER IN USE'))
+              csock.send(message_generator(ERROR, 'IDENTIFIER IN USE').encode())
+              continue
+            
+            print(message_generator(SUCCESS, generized_token))
+            csock.send(message_generator(SUCCESS, generized_token).encode())
+            phase = 2
+            session_start_time = start_timer()
+            cur_token = generized_token
+            continue
+          
+          case 2:
+            print("Phase2")
+            if is_session_expired():
+              token = rcv_msg_dict["token"]
+              is_loggedout = expired_logout(token)
+              if is_loggedout:
+                print(message_generator(ERROR, "SESSION EXPIRED"))
+                csock.send(message_generator(ERROR, "SESSION EXPIRED").encode())
+                continue
+              
+            if rcv_msg_dict['action'] == 'LOGIN':
+              print(message_generator(ERROR, 'INVALID ACTION'))
+              csock.send(message_generator(ERROR, 'INVALID ACTION').encode())
+              continue
+            
+            if rcv_msg_dict['action'] == 'LOGOUT':
+              client_token = rcv_msg_dict['token']
+              is_loggedout = logout(client_token)
+              if is_loggedout:
+                print(message_generator(SUCCESS, 'USER LOGGED OUT'))
+                csock.send(message_generator(SUCCESS, 'USER LOGGED OUT').encode())
+                continue
+              else:
+                print(message_generator(ERROR, 'LOGGING OUT FAIL'))
+                csock.send(message_generator(ERROR, 'LOGGING OUT FAIL').encode())
+                continue
+              
+            if rcv_msg_dict['action'] == 'ADD':
+              note = rcv_msg_dict['parameter']
+              client_token = rcv_msg_dict['token']
+              if len(note) != 2:
+                print(message_generator(ERROR, 'INVALID DATA'))
+                csock.send(message_generator(ERROR, 'INVALID DATA').encode())
+                continue
+              if client_token != cur_token:
+                print(message_generator(ERROR, 'INVALID TOKEN'))
+                csock.send(message_generator(ERROR, 'INVALID TOKEN').encode())
+                continue
+              # TODO: change to sqlite
+              isAdded = addNote_toDB(note['name'], note['note'])
+              if isAdded:
+                print(message_generator(SUCCESS, 'NOTE ADDED'))
+                csock.send(message_generator(SUCCESS, 'NOTE ADDED').encode())
+              else:
+                print(message_generator(ERROR, 'NOTE NOT ADDED'))
+                csock.send(message_generator(SUCCESS, 'NOTE NOTE ADDED').encode())
+              continue
+            
+            
+            if rcv_msg_dict['action'] == 'RETRIEVE':
+              client_token = rcv_msg_dict['token']
+              if client_token != cur_token:
+                print(message_generator(ERROR, 'INVALID TOKEN'))
+                csock.send(message_generator(ERROR, 'INVALID TOKEN').encode())
+                continue
+              
+              note_name = rcv_msg_dict['parameter']
+              if len(note) == 0:
+                print(message_generator(ERROR, 'INVALID DATA'))
+                csock.send(message_generator(ERROR, 'INVALID DATA').encode())
+                continue
+              
+              if note_name == "ALL":
+                data_all = retrieveNote_ALL()
+                if len(data_all) == 0:
+                  print(message_generator(ERROR, "EMPTY"))
+                  csock.send(message_generator(ERROR, "EMPTY").encode())
+                else:  
+                  print(message_generator(SUCCESS, data_all))
+                  csock.send(message_generator(SUCCESS, data_all).encode())
+                
+                continue
+              
+              retrieved_note = retrieveNote_byName(note_name)
+              if len(retrieved_note) == 0:
+                print(message_generator(ERROR, "EMPTY"))
+                csock.send(message_generator(ERROR, "EMPTY").encode())
+              else:
+                print(message_generator(SUCCESS, retrieved_note))
+                csock.send(message_generator(SUCCESS, retrieved_note).encode())
+              continue
+            
+            if rcv_msg_dict['action'] == 'DELETE':
+              client_token = rcv_msg_dict['token']
+              if client_token != cur_token:
+                print(message_generator(ERROR, 'INVALID TOKEN'))
+                csock.send(message_generator(ERROR, 'INVALID TOKEN').encode())
+                continue
+              
+              note_name = rcv_msg_dict['parameter']
+              if len(note) == 0:
+                print(message_generator(ERROR, 'INVALID DATA'))
+                csock.send(message_generator(ERROR, 'INVALID DATA').encode())
+                continue
+              
+              isDeleted = deleteNote_byName(note_name)
+              if isDeleted:
+                print(message_generator(SUCCESS, "NOTE DELETED"))
+                csock.send(message_generator(SUCCESS, "NOTE DELETED").encode())
+                continue
+              else:
+                print(message_generator(ERROR, "NOTE NOT EXIST"))
+                csock.send(message_generator(ERROR, "NOTE NOT EXIST").encode())
+                continue
+          case _:
+            print(message_generator(ERROR, "SERVER ERROR"))
+            csock.send(message_generator(ERROR, "SERVER ERROR").encode())
+            continue
+          
+        
+        
+        
+      except error as e:
+        if e.errno == errno.EWOULDBLOCK:
+          # no data received. wait a little and read again
+          time.sleep(0.1)
+          continue
+        else:
+          # error in processing. close this connection,
+          print("ERROR: " + e.strerror)
+          continue
+except KeyboardInterrupt as e:
+  print("\nBYE, SERVER IS DOWN", e)
+  if serverSocket:
+    serverSocket.close()
+  exit(0)
+except error as e:
+  print("\nBYE, SERVER IS DOWN", e)
+  if serverSocket:
+    serverSocket.close()
+  exit(0)
