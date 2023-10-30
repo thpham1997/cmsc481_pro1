@@ -48,7 +48,11 @@ def receiveServerMessage():
         print("exit")
         ssock.close()
         return json.dumps({"status": "ERROR", "message": "Something went wrong"})
-      
+
+def isSessionExpired(status, message):
+  if status == ERROR and message == SESSION_EXPIRED:
+    return True
+  return False
 # PHASE 1
 def loginByID(id):
   global token
@@ -133,71 +137,6 @@ def delete(noteName, token):
 
 
 
-# the rest is the driver code client
-  
-# if __name__ == '__main__':
-#   try:
-#     openConnection()
-#   except error as e:
-#     print("An error has occurred in the connection")
-#     exit()
-#   user_input = ''
-#   status, message, tokens = None, None, None
-#   # ask the user to login first
-#   while status != "SUCCESS":
-    
-#     print(status, tokens)
-#     user_input = input("Enter ID: ") #PHASE 1
-#     status,tokens =  loginByID(user_input)
-
-#   print("Login successful")
-
-#   while user_input.upper() != ACTIONS[1]:#PHASE 2
-#     print("What would you like to do? Available actions are listed below")
-#     for action in ACTIONS:
-#       if action != ACTIONS[0]:
-#         print(action)
-#     while user_input not in ACTIONS and user_input != ACTIONS[0]:
-#       user_input = input("> ").upper()
-#     match user_input: #verify correct action and return result
-#       case 'ADD':
-#         note_to_add = {"name": "note1", "note": ""}
-#         note_to_add["name"] = input("What do you want to call the note?\n> ")
-#         note_to_add["note"] = input("What do you want to write in the note?\n> ")
-#         status,message = add(note_to_add["name"], note_to_add["note"],tokens)
-#         if status == "SUCCESS":
-#           print(note_to_add["name"]+" was successfully added.")
-#         else:
-#           print("Error: "+status["message"])
-#         continue  
-
-#       case 'RETRIEVE':
-#         note_to_print = ""
-#         noteId = input("Which note would you like to retrieve?\n> ")
-#         status, note_to_print = retrieve(noteId,tokens)
-#         if status == "SUCCESS" and note_to_print != None:
-#           print(note_to_print)
-#         else:
-#           print("Error: ")#note does not exist
-#         continue
-#       case 'DELETE':
-#         note_to_delete = input("What is the name of the note you would like to delete?\n>")
-#         status, message = delete(note_to_delete,tokens)
-#         if status == "SUCCESS":
-#           print(note_to_delete+" successfully deleted")
-#         else:
-#           print("Note failed to delete")
-#         continue
-#       case 'LOGOUT':
-#         status, message = logout(tokens)
-#         print(status, message)
-#         continue
-      
-    
-
-#   logout(tokens)  #PHASE 3
-#   closeConnection()
-
 ERROR, SUCCESS = "ERROR", "SUCCESS"
 CANCEL = 'CANCEL'
 SESSION_EXPIRED = "SESSION EXPIRED"
@@ -272,12 +211,23 @@ while True:
       case 'LOGOUT':
         actionStatus, actionRcvMessage = logout(token)
         print(actionStatus, ":", actionRcvMessage)
+        if isSessionExpired(actionStatus, actionRcvMessage):
+          ssock.close()
+          ssock = None
+          token = None
+          break
         continue
         
       case 'RETRIEVE':
         retrieveInput = input("Please enter the note name for specific note or ALL for all notes: ")
         actionStatus, actionRcvMessage = retrieve(retrieveInput, token)
         print(actionStatus, ":", actionRcvMessage)
+        if isSessionExpired(actionStatus, actionRcvMessage):
+          ssock.close()
+          ssock = None
+          token = None
+          print(SESSION_EXPIRED)
+          break
         continue
       
       case 'ADD':
@@ -287,13 +237,29 @@ while True:
         noteText = input("Please enter note: ")
         actionStatus, actionRcvMessage = add(noteId=noteId, noteName=noteName, noteMessage=noteText, token=token)
         print(actionStatus, ":", actionRcvMessage)
+        if isSessionExpired(actionStatus, actionRcvMessage):
+          ssock.close()
+          ssock = None
+          token = None
+          print(SESSION_EXPIRED)
+          break
         continue
       
       case 'DELETE':
         noteName = input("Please enter note name: ")
         actionStatus, actionRcvMessage = delete(noteName=noteName, token=token)
         print(actionStatus, ":", actionRcvMessage)
+        if isSessionExpired(actionStatus, actionRcvMessage):
+          ssock.close()
+          ssock = None
+          token = None
+          print(SESSION_EXPIRED)
+          break
         continue
+      
+    if actionStatus == ERROR and actionRcvMessage == SESSION_EXPIRED:
+      token = None
+      break
         
         
     # logout successfully
