@@ -190,13 +190,18 @@ try:
         # when client close connection, it send empty message
         if rcv_msg == '':
           break
-        
-        rcv_msg_dict = json.loads(rcv_msg)
+        rcv_msg_dict = {}
+        try:
+          rcv_msg_dict = json.loads(rcv_msg)
+        except Exception as e:
+          print(message_generator(ERROR, 'INVALID PROTOCOL'))
+          csock.send(message_generator(ERROR, 'INVALID PROTOCOL').encode())
+          continue
         # print("message DICT: " + str(rcv_msg_dict))
         # filter out the invalid format message first
-        if len(rcv_msg_dict) < 3 or 'action' not in rcv_msg_dict.keys() or rcv_msg_dict['action'] not in ACTIONS:
-          print(message_generator(ERROR, 'INVALID FORMAT'))
-          csock.send(message_generator(ERROR, 'INVALID FORMAT').encode())
+        if len(rcv_msg_dict) < 3 or 'action' not in rcv_msg_dict.keys() or rcv_msg_dict['action'] not in ACTIONS or 'parameter' not in rcv_msg_dict.keys() or 'token' not in rcv_msg_dict.keys():
+          print(message_generator(ERROR, 'INVALID PROTOCOL'))
+          csock.send(message_generator(ERROR, 'INVALID PROTOCOL').encode())
           continue
         
         
@@ -252,8 +257,8 @@ try:
                 csock.send(message_generator(SUCCESS, 'USER LOGGED OUT').encode())
                 continue
               else:
-                print(message_generator(ERROR, 'LOGGING OUT FAIL'))
-                csock.send(message_generator(ERROR, 'LOGGING OUT FAIL').encode())
+                print(message_generator(ERROR, 'OPERATION FAILED'))
+                csock.send(message_generator(ERROR, 'OPERATION FAILED').encode())
                 continue
               
             if rcv_msg_dict['action'] == 'ADD':
@@ -273,8 +278,8 @@ try:
                 print(message_generator(SUCCESS, 'NOTE ADDED'))
                 csock.send(message_generator(SUCCESS, 'NOTE ADDED').encode())
               else:
-                print(message_generator(ERROR, 'NOTE NOT ADDED'))
-                csock.send(message_generator(ERROR, 'NOTE NOT ADDED').encode())
+                print(message_generator(ERROR, 'OPERATION FAILED'))
+                csock.send(message_generator(ERROR, 'OPERATION FAILED').encode())
               continue
             
             
@@ -329,8 +334,8 @@ try:
                 csock.send(message_generator(SUCCESS, "NOTE DELETED").encode())
                 continue
               else:
-                print(message_generator(ERROR, "NOTE NOT EXIST"))
-                csock.send(message_generator(ERROR, "NOTE NOT EXIST").encode())
+                print(message_generator(ERROR, "OPERATION FAILED"))
+                csock.send(message_generator(ERROR, "OPERATION FAILED").encode())
                 continue
           case _:
             print(message_generator(ERROR, "SERVER ERROR"))
