@@ -14,7 +14,7 @@ Server Features:
     Time out the user after a set amount of time has passed without communication
 
 Both the client and server utilize tcp and the socket library.
-Additional external libraries include time and json.
+Additional external libraries include time and json and sqlite.
 
 The client messages and server responses are formatted as follows:
 # server_return = {"status":"status message", "token:":"client token","return":"value to return depending on action"}
@@ -24,16 +24,17 @@ The dictionary is sent through the socket as a string using json.dumps(), and th
 If the server or client does not receive messages in this format, they are rejected. In either case, the server and/or client display that the interaction failed to the user.
 Client actions are defined through the actions keywords:
 # ACTIONS = ('LOGIN', 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE')
-Server memos are stored in dictionaries with a predefined structure:
+Server memos in the code are stored in dictionaries with a predefined structure:
 # note1 = {"id": 1, "name": "note1", "note": "this is the note content"}
-Valid IDs are stored in the server and additional IDs must be added manually outside of the execution of the client/server.
+The memos are also stored in a dedicated sql database in a notes table:
+# (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, note TEXT)
 
 
-The server binds a port which is set in the source code, and listens for the incoming client connections. Once a client connects, the server waits for the LOGIN action from the client. If the client does not send that action, or the server does not recognize the ID sent by the client, the server rejects the client's message and sends back an error. The client will then re-attempt log in using the corrrect ID, or terminate the connection. Once the login is successful, the server generates and stores a session token and returns it to the client, which also stores it. The bulk of the interactions between the client and server then begin.
+The server binds a port which is set in the source code, and listens for the incoming client connections. Once a client connects, the server waits for the LOGIN action from the client. If the client does not send that action, or the server does not recognize the ID sent by the client, the server rejects the client's message and sends back an error. The client will then re-attempt log in using the corrrect ID, or terminate the connection. Once the login is successful, the server generates and stores a session token, which the client is given and also stores it. The bulk of the interactions between the client and server then begin.
 
 The client can send a message to the server with any of the available actions, except for LOGIN. The course of action is determined using a match case statement on the client and server.
-
+During an active connection, if there is no activity for a certain amount of time, then the server times out the client connection by removing the token that connection uses, stops accepting data from the client and tells the client to log out.
 If the action is ADD, the user provides a memo name and its contents, which are sent to the server. This action only fails if the dictionary input is a duplicate of the one in the server[<-idk if this case is handled] or if either the memo title or its description are missing.
 If the action is DELETE, the user is asked which memo to delete based on its name. The server will then delete the associated memo. This action fails if no memo is given or the memo name is not in the list of memos.
 If the action is RETRIEVE, the user is asked which memo to view. The server will then return the contents of the associated memo, if it exists. This action fails is the memo name given does not exist in the server.
-If the action is LOGOUT, the client will send the session token it is using to the server. The server will then delete the token, and on successful return the client will disconnect from the server.
+If the action is LOGOUT, the client will send the session token it is using to the server. The server will then delete the token, close the incoming client socket, and the client will disconnect from the server. This action should not fail under normal circumstances.
