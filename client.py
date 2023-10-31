@@ -196,7 +196,7 @@ try:
     action = ''
     actionStatus = ''
     actionRcvMessage = ''
-    while action != 'LOGOUT' and token:
+    while token:
       print("What action do you want to perform: ")
       availableAction = ACTIONS[1:]
       # print out: 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE'
@@ -217,7 +217,12 @@ try:
           if isSessionExpired(actionStatus, actionRcvMessage):
             closeConnection()
             break
-          continue
+          if actionStatus == SUCCESS:
+            closeConnection()
+            break
+          else:
+            continue
+            
           
         case 'RETRIEVE':
           retrieveInput = input("Please enter the note name for specific note or ALL for all notes: ")
@@ -255,13 +260,7 @@ try:
         break
           
           
-      # logout successfully
-      # clear token and go back to login (phase 0)
-      if action == "LOGOUT" and actionStatus == SUCCESS:
-        ssock.close()
-        ssock = None
-        token = None
-        break
+    
 except KeyboardInterrupt as e:
   if token:
     status, logoutMessage = logout(token)
