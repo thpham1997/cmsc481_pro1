@@ -18,7 +18,7 @@ database.append(note3)
 
 VALID_IDENTIFIER = ("tommy1", "hally2", "pattrick3")
 ACTIONS = ('LOGIN', 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE')
-MAX_SESSION_TIME = 10*60 #for now let it be 10 minutes
+MAX_SESSION_TIME = 1*60 #for now let it be 10 minutes
 ERROR, SUCCESS = "ERROR", "SUCCESS"
 tokens = []
 cur_token = None
@@ -35,24 +35,7 @@ def message_generator(status, message):
   
 def tokenize(identifier):
   return hash(identifier + str(time.time()))
-
-# def getNote_byName(name):
-#   for note in database:
-#     if note['name'] == name:
-#       return note
-#   return {}
-
-# def deleteNote_byName(name):
-#   delete_note = None
-#   for note in database:
-#     if note['name'] == name:
-#       delete_note = note
-#   if delete_note:
-#     database.remove(delete_note)
-#     return True
-#   return False
   
-    
 def start_timer():
   return time.time()
   
@@ -70,10 +53,10 @@ def logout(token):
   global cur_token
   global phase
   global session_start_time
-  print(token)
-  print(cur_token)
-  print(phase)
-  print(session_start_time)
+  # print(token)
+  # print(cur_token)
+  # print(phase)
+  # print(session_start_time)
   if token == cur_token:
     cur_token = None
     phase = 1
@@ -138,11 +121,13 @@ def retrieveNote_byName(noteName):
   try:
     result = cur.execute(query, (noteName, ))
     data = result.fetchone()
-    note = {"id": data[0], "name": data[1], "note": data[2]}
-    print(data)
-    print(note)
-    conn.close()
-    return note
+    if data:
+      note = {"id": data[0], "name": data[1], "note": data[2]}
+      # print(data)
+      # print(note)
+      conn.close()
+      return note
+    return {}
   except sqlite3.Error as e:
     print('SQLite error: %s' % (' '.join(e.args)))
     conn.close()
@@ -155,13 +140,13 @@ def retrieveNote_ALL():
   try:
     result = cur.execute(query)
     data = result.fetchall()
-    print("retrievALL", data)
+    # print("retrievALL", data)
     note_list = []
     for d in data:
       note = {"id": d[0], "name": d[1], "note": d[2]}
       note_list.append(note)
     conn.close()
-    print("retrievALL", note_list)
+    # print("retrievALL", note_list)
     return note_list
   except sqlite3.Error as e:
     print('SQLite error: %s' % (' '.join(e.args)))
@@ -207,7 +192,7 @@ try:
           break
         
         rcv_msg_dict = json.loads(rcv_msg)
-        print("message DICT: " + str(rcv_msg_dict))
+        # print("message DICT: " + str(rcv_msg_dict))
         # filter out the invalid format message first
         if len(rcv_msg_dict) < 3 or 'action' not in rcv_msg_dict.keys() or rcv_msg_dict['action'] not in ACTIONS:
           print(message_generator(ERROR, 'INVALID FORMAT'))
@@ -250,7 +235,10 @@ try:
                 print(message_generator(ERROR, "SESSION EXPIRED"))
                 csock.send(message_generator(ERROR, "SESSION EXPIRED").encode())
                 continue
-              
+            
+            session_start_time = start_timer()
+            print("Reset timer")
+            
             if rcv_msg_dict['action'] == 'LOGIN':
               print(message_generator(ERROR, 'INVALID ACTION'))
               csock.send(message_generator(ERROR, 'INVALID ACTION').encode())
@@ -279,14 +267,14 @@ try:
                 print(message_generator(ERROR, 'INVALID TOKEN'))
                 csock.send(message_generator(ERROR, 'INVALID TOKEN').encode())
                 continue
-              # TODO: change to sqlite
+              
               isAdded = addNote_toDB(note['name'], note['note'])
               if isAdded:
                 print(message_generator(SUCCESS, 'NOTE ADDED'))
                 csock.send(message_generator(SUCCESS, 'NOTE ADDED').encode())
               else:
                 print(message_generator(ERROR, 'NOTE NOT ADDED'))
-                csock.send(message_generator(SUCCESS, 'NOTE NOTE ADDED').encode())
+                csock.send(message_generator(ERROR, 'NOTE NOT ADDED').encode())
               continue
             
             
@@ -311,7 +299,6 @@ try:
                 else:  
                   print(message_generator(SUCCESS, data_all))
                   csock.send(message_generator(SUCCESS, data_all).encode())
-                
                 continue
               
               retrieved_note = retrieveNote_byName(note_name)
