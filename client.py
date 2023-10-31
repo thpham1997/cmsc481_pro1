@@ -267,7 +267,7 @@ except KeyboardInterrupt as e:
     print(status, ":", logoutMessage)
   if ssock:
     closeConnection()
-  exitApplication
+  exitApplication()
 except Exception as e:
   print("ERROR: ", e)
   exitApplication()

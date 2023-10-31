@@ -57,7 +57,7 @@ def logout(token):
   # print(cur_token)
   # print(phase)
   # print(session_start_time)
-  if token == cur_token:
+  if cur_token and token == cur_token:
     cur_token = None
     phase = 1
     session_start_time = None
@@ -189,6 +189,8 @@ try:
         print("message: " + rcv_msg)
         # when client close connection, it send empty message
         if rcv_msg == '':
+          print("EMPTY MESSAGE-CONNECTION LOST")
+          logout(cur_token)
           break
         rcv_msg_dict = {}
         try:
