@@ -13,6 +13,11 @@ Server Features:
     Create, delete, retrieve memos from client messages
     Time out the user after a set amount of time has passed without communication
 
+Protocol:
+
+
+Implementation:
+
 Both the client and server utilize tcp and the socket library.
 Additional external libraries include time and json and sqlite.
 
@@ -38,3 +43,14 @@ If the action is ADD, the user provides a memo name and its contents, which are 
 If the action is DELETE, the user is asked which memo to delete based on its name. The server will then delete the associated memo. This action fails if no memo is given or the memo name is not in the list of memos.
 If the action is RETRIEVE, the user is asked which memo to view. The server will then return the contents of the associated memo, if it exists. This action fails is the memo name given does not exist in the server.
 If the action is LOGOUT, the client will send the session token it is using to the server. The server will then delete the token, close the incoming client socket, and the client will disconnect from the server. This action should not fail under normal circumstances.
+
+Error Cases:
+1. Client sends wrong invalid action
+    Server returns an error message such as "INVALID TOKEN", "INVALID DATA", "INVALID IDENTIFIER"
+    The client receives the message, displays it to the user and re-prompts an action
+2. Client sends invalid protocol message
+    Client does not send a protocol message that does not match with the given format
+    The server returns an error message "INVALID PROTOCOL" and the client has to re-enter the message
+3. Client connection is closed improperly
+    On netcat, if the client closes connection the server will keep receiving messages infinitely.
+    The server will check for a timeout or after certain amount of duplicate messages, and then forcibly close the client socket, freeing up the connection.
