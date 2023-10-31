@@ -41,7 +41,7 @@ def receiveServerMessage():
   while True:
     try:
       message = ssock.recv(1024).decode('ascii')
-      print (message)
+      # print (message)
     except error as e:
       if e.errno == errno.EWOULDBLOCK:
       # all data received, send next data
@@ -84,7 +84,7 @@ def logout(token):
   ssock.send(json.dumps(message).encode())
   time.sleep(0.1)
   server_return = receiveServerMessage()
-  print(server_return)
+  # print(server_return)
   data = json.loads(server_return)
   status = data["status"]  # extract status and token
   message = data["message"] #token is sent as message param 
@@ -99,7 +99,7 @@ def retrieve(name, token):
   # server_return = ssock.recv(1024).decode('ascii') # message contains token and status
   time.sleep(0.1)
   server_return = receiveServerMessage()
-  print(server_return)
+  # print(server_return)
   data = json.loads(server_return)# make a json format from a dict
   note = data["message"]
   status = data["status"]
@@ -115,7 +115,7 @@ def add(noteName, noteMessage, token):
   # server_return = ssock.recv(1024).decode('ascii') # message contains token and status
   time.sleep(0.1)
   server_return = receiveServerMessage()
-  print(server_return)
+  # print(server_return)
   data = json.loads(server_return)# make a json format from a dict
   message = data["message"]
   status = data["status"]
@@ -130,7 +130,7 @@ def delete(noteName, token):
   # server_return = ssock.recv(1024).decode('ascii') # message contains token and status
   time.sleep(0.1)
   server_return = receiveServerMessage()
-  print(server_return)
+  # print(server_return)
   data = json.loads(server_return)# make a json format from a dict
   message = data["message"]
   status = data["status"]
@@ -186,7 +186,7 @@ try:
       identifier = loginInput
       loginStatus, loginRcvMessage = loginByID(identifier)
       if loginStatus == SUCCESS:
-        print(loginStatus + ": logged in, token saved.")
+        print(loginStatus + ": Logged in, token saved.")
         token = loginRcvMessage
       else: 
         print(loginStatus + ": ", loginRcvMessage)  
