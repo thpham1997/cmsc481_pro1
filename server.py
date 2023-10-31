@@ -27,6 +27,46 @@ phase = 1
 serverSocket = None
 recvbufsize = 1024
 session_start_time = None
+ServerBuffer = ''
+MAX_EMPTYMESSAGE_THRESHOLD = 10
+current_empty_count = 0
+def analyze_factorize_message(incoming_message):
+  global ServerBuffer
+  total = 0
+  print("message type: ", type(incoming_message))
+  notNewline_incoming_message = ''
+  if len(incoming_message) > 1:
+    print(len(incoming_message))
+    notNewline_incoming_message = incoming_message[0:len(incoming_message) - 1]
+  print(len(notNewline_incoming_message))
+  print("\n?", notNewline_incoming_message == "\n")
+  print("?", notNewline_incoming_message == "")
+  print("ServerBuffer BEFORE: " + ServerBuffer)
+  ServerBuffer = ServerBuffer + notNewline_incoming_message
+  standardlizedish_message = ''
+  print("ServerBuffer DURING: " + ServerBuffer)
+  if len(ServerBuffer) == 0:
+    ServerBuffer = ''
+    return {"status":"ERROR", "message": "EMPTY MESSAGE"}
+    
+  if ServerBuffer[0] != '{':
+    ServerBuffer = ''
+    print("ServerBuffer AFTER: " + ServerBuffer)
+    return {"status":"ERROR", "message": "INVALID PROTOCOL"}
+
+  for i in range(len(ServerBuffer)):
+    if ServerBuffer[i] == "{":
+      total +=1
+    if ServerBuffer[i] == "}":
+      total -=1
+    if total == 0:
+      standardlizedish_message = ServerBuffer[0:i+1]
+      ServerBuffer = ServerBuffer[i+1:]
+      print("ServerBuffer AFTER: " + ServerBuffer)
+      return {"status":"SUCCESS", "message": standardlizedish_message}
+    
+  print("ServerBuffer AFTER: " + ServerBuffer)
+  return {"status":"ERROR", "message": "NOT COMPLETE"}
 
 def message_generator(status, message):
   return json.dumps({"status": status, "message": message})
@@ -105,7 +145,7 @@ def addNote_toDB(noteName, note):
   cur = conn.cursor()
   query = "INSERT INTO notes (name, note) values (?, ?)"
   try:
-    result = cur.execute(query, (noteName, note))
+    result = cur.execute(query, (noteName, note,))
     conn.commit()
     return True
   except sqlite3.Error as e:
@@ -187,14 +227,37 @@ try:
         rcv_msg = rcv_msg.decode('ascii')
         # convert json string into dict
         print("message: " + rcv_msg)
+        afm_result = analyze_factorize_message(rcv_msg)
+        if afm_result['status'] == ERROR:
+          if afm_result['message'] == "EMPTY MESSAGE":
+            print(afm_result['message'])
+            current_empty_count +=1
+            if current_empty_count == MAX_EMPTYMESSAGE_THRESHOLD:
+              print(message_generator(ERROR, 'INVALID PROTOCOL'))
+              csock.send(message_generator(ERROR, 'INVALID PROTOCOL').encode())
+              csock.close()
+              current_empty_count = 0
+              break
+            
+            continue
+          if afm_result['message'] == "INVALID PROTOCOL":
+            print(message_generator(ERROR, 'INVALID PROTOCOL'))
+            csock.send(message_generator(ERROR, 'INVALID PROTOCOL').encode())
+            continue
+          if afm_result['message'] == "NOT COMPLETE":
+            print(afm_result['message'])
+            continue
+        
+        standardlized_message = afm_result['message']
+        
         # when client close connection, it send empty message
-        if rcv_msg == '':
+        if standardlized_message == '':
           print("EMPTY MESSAGE-CONNECTION LOST")
           logout(cur_token)
           break
         rcv_msg_dict = {}
         try:
-          rcv_msg_dict = json.loads(rcv_msg)
+          rcv_msg_dict = json.loads(standardlized_message)
         except Exception as e:
           print(message_generator(ERROR, 'INVALID PROTOCOL'))
           csock.send(message_generator(ERROR, 'INVALID PROTOCOL').encode())
