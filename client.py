@@ -12,6 +12,43 @@ recvbufsize = 1024
 
 ACTIONS = ['LOGIN', 'LOGOUT', 'ADD', 'RETRIEVE', 'DELETE']
 
+# ClientBuffer = ''
+# MAX_EMPTYMESSAGE_THRESHOLD = 10
+# current_empty_count = 0
+
+# def analyze_factorize_message(incoming_message):
+#   global ClientBuffer
+#   total = 0
+#   if len(incoming_message) != 0 and incoming_message[-1] == '\n':
+#     incoming_message = incoming_message[:-1]
+#   print("incoming_message ", incoming_message)
+#   print("ClientBuffer BEFORE: " + ClientBuffer)
+#   ClientBuffer += incoming_message
+#   print("ClientBuffer DURING: " + ClientBuffer)
+#   if len(ClientBuffer) == 0:
+#     ClientBuffer = ''
+#     print("ClientBuffer AFTER: " + ClientBuffer)
+#     return {"status":"ERROR", "message": "EMPTY MESSAGE"}
+    
+#   if ClientBuffer[0] != '{':
+#     ClientBuffer = ''
+#     print("ClientBuffer AFTER: " + ClientBuffer)
+#     return {"status":"ERROR", "message": "INVALID PROTOCOL"}
+
+#   for i in range(len(ClientBuffer)):
+#     if ClientBuffer[i] == "{":
+#       total +=1
+#     if ClientBuffer[i] == "}":
+#       total -=1
+#     if total == 0:
+#       standardlizedish_message = ClientBuffer[0:i + 1]
+#       ClientBuffer = ClientBuffer[i+1:]
+#       print("ClientBuffer AFTER: " + ClientBuffer)
+#       return {"status":"SUCCESS", "message": standardlizedish_message}
+    
+#   print("ClientBuffer AFTER: " + ClientBuffer)
+#   return {"status":"ERROR", "message": "NOT COMPLETE"}
+
 def openConnection():
   global ssock
   try:
@@ -30,7 +67,8 @@ def closeConnection():
   global ssock
   global token
   try:
-    ssock.close()
+    if ssock:
+      ssock.close()
     ssock = None
     token = None
     print("\nConnection closed\n")
@@ -180,7 +218,6 @@ try:
     while loginStatus != SUCCESS:
       loginInput = input("Indentifier or CANCEL(enter 0): ")
       if loginInput == '0':
-        accessInput == ''
         closeConnection()
         break;
       identifier = loginInput
@@ -216,6 +253,7 @@ try:
           print(actionStatus, ":", actionRcvMessage)
           if isSessionExpired(actionStatus, actionRcvMessage):
             closeConnection()
+            print(SESSION_EXPIRED)
             break
           if actionStatus == SUCCESS:
             closeConnection()
