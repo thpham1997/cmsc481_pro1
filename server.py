@@ -30,23 +30,19 @@ session_start_time = None
 ServerBuffer = ''
 MAX_EMPTYMESSAGE_THRESHOLD = 10
 current_empty_count = 0
+
 def analyze_factorize_message(incoming_message):
   global ServerBuffer
   total = 0
-  print("message type: ", type(incoming_message))
-  notNewline_incoming_message = ''
-  if len(incoming_message) > 1:
-    print(len(incoming_message))
-    notNewline_incoming_message = incoming_message[0:len(incoming_message) - 1]
-  print(len(notNewline_incoming_message))
-  print("\n?", notNewline_incoming_message == "\n")
-  print("?", notNewline_incoming_message == "")
+  if len(incoming_message) != 0 and incoming_message[-1] == '\n':
+    incoming_message = incoming_message[:-1]
+  print("incoming_message ", incoming_message)
   print("ServerBuffer BEFORE: " + ServerBuffer)
-  ServerBuffer = ServerBuffer + notNewline_incoming_message
-  standardlizedish_message = ''
+  ServerBuffer += incoming_message
   print("ServerBuffer DURING: " + ServerBuffer)
   if len(ServerBuffer) == 0:
     ServerBuffer = ''
+    print("ServerBuffer AFTER: " + ServerBuffer)
     return {"status":"ERROR", "message": "EMPTY MESSAGE"}
     
   if ServerBuffer[0] != '{':
@@ -60,7 +56,7 @@ def analyze_factorize_message(incoming_message):
     if ServerBuffer[i] == "}":
       total -=1
     if total == 0:
-      standardlizedish_message = ServerBuffer[0:i+1]
+      standardlizedish_message = ServerBuffer[0:i + 1]
       ServerBuffer = ServerBuffer[i+1:]
       print("ServerBuffer AFTER: " + ServerBuffer)
       return {"status":"SUCCESS", "message": standardlizedish_message}
@@ -232,11 +228,17 @@ try:
           if afm_result['message'] == "EMPTY MESSAGE":
             print(afm_result['message'])
             current_empty_count +=1
-            if current_empty_count == MAX_EMPTYMESSAGE_THRESHOLD:
+            if current_empty_count >= MAX_EMPTYMESSAGE_THRESHOLD:
               print(message_generator(ERROR, 'INVALID PROTOCOL'))
               csock.send(message_generator(ERROR, 'INVALID PROTOCOL').encode())
+              if cur_token:
+                is_loggedout = logout(cur_token)
+                if is_loggedout:
+                  print(message_generator(ERROR, 'USER LOGGED OUT'))
+                  csock.send(message_generator(ERROR, 'USER LOGGED OUT').encode())
               csock.close()
               current_empty_count = 0
+              
               break
             
             continue
@@ -254,6 +256,8 @@ try:
         if standardlized_message == '':
           print("EMPTY MESSAGE-CONNECTION LOST")
           logout(cur_token)
+          # if csock:
+          #   csock.close()
           break
         rcv_msg_dict = {}
         try:
@@ -299,12 +303,12 @@ try:
           case 2:
             print("Phase2")
             if is_session_expired():
-              token = rcv_msg_dict["token"]
-              is_loggedout = expired_logout(token)
+              is_loggedout = expired_logout(cur_token)
               if is_loggedout:
                 print(message_generator(ERROR, "SESSION EXPIRED"))
                 csock.send(message_generator(ERROR, "SESSION EXPIRED").encode())
-                continue
+                csock.close()
+                break
             
             session_start_time = start_timer()
             print("Reset timer")
@@ -320,7 +324,8 @@ try:
               if is_loggedout:
                 print(message_generator(SUCCESS, 'USER LOGGED OUT'))
                 csock.send(message_generator(SUCCESS, 'USER LOGGED OUT').encode())
-                continue
+                # csock.close()
+                break
               else:
                 print(message_generator(ERROR, 'OPERATION FAILED'))
                 csock.send(message_generator(ERROR, 'OPERATION FAILED').encode())
@@ -418,7 +423,10 @@ try:
         else:
           # error in processing. close this connection,
           print("ERROR: " + e.strerror)
-          continue
+          is_loggedout = logout(cur_token)
+          if is_loggedout:
+            print(message_generator(ERROR, "SESSION ERROR"))
+          break
 except KeyboardInterrupt as e:
   print("\nBYE, SERVER IS DOWN", e)
   if serverSocket:
