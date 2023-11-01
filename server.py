@@ -307,7 +307,7 @@ try:
               if is_loggedout:
                 print(message_generator(ERROR, "SESSION EXPIRED"))
                 csock.send(message_generator(ERROR, "SESSION EXPIRED").encode())
-                csock.close()
+                # csock.close()
                 break
             
             session_start_time = start_timer()
